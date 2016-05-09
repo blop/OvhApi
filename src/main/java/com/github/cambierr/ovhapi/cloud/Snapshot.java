@@ -28,12 +28,9 @@ import com.github.cambierr.ovhapi.common.OvhApi;
 import com.github.cambierr.ovhapi.common.RequestBuilder;
 import com.github.cambierr.ovhapi.common.SafeResponse;
 import com.github.cambierr.ovhapi.exception.PartialObjectException;
-import com.github.cambierr.ovhapi.exception.RequestException;
-import java.text.ParseException;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import rx.Observable;
-import rx.Subscriber;
 
 /**
  *
@@ -99,7 +96,8 @@ public class Snapshot extends Image {
      *
      * @param _project The project to list snapshots from
      * @param _region The region to list snapshots from (null = all regions)
-     * @param _flavor The flavor to be compatible with (null = no compatibility requirement)
+     * @param _flavor The flavor to be compatible with (null = no compatibility
+     * requirement)
      *
      * @return Zero to several observable Snapshot objects
      */
@@ -114,32 +112,19 @@ public class Snapshot extends Image {
 
         return new RequestBuilder("/cloud/project/" + _project.getId() + "/snapshot?" + args, Method.GET, _project.getCredentials())
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    if (t1.getStatus() < 200 || t1.getStatus() >= 300 || t1.getBody() == null || !t1.getBody().isArray()) {
-                        return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                    }
-                    final JSONArray snapshots = t1.getBody().getArray();
-                    return Observable
-                    .range(0, snapshots.length())
-                    .flatMap((Integer t2) -> Observable.create((Subscriber<? super Snapshot> t3) -> {
-                        try {
-                            Snapshot image = new Snapshot(_project,
-                                    snapshots.getJSONObject(t2).getString("id"),
-                                    snapshots.getJSONObject(t2).getString("visibility"),
-                                    OvhApi.dateToTime(snapshots.getJSONObject(t2).getString("creationDate")),
-                                    snapshots.getJSONObject(t2).getString("status"),
-                                    Region.byName(_project, snapshots.getJSONObject(t2).getString("region")),
-                                    snapshots.getJSONObject(t2).getString("name"),
-                                    snapshots.getJSONObject(t2).getString("type"),
-                                    snapshots.getJSONObject(t2).getInt("minDisk")
-                            );
-                            t3.onNext(image);
-                        } catch (ParseException ex) {
-                            t3.onError(ex);
-                        }
-                        t3.onCompleted();
-                    }));
-                });
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(JSONArray.class))
+                .flatMap((JSONArray snapshots) -> Observable
+                        .range(0, snapshots.length())
+                        .map((Integer t2) -> new Snapshot(_project,
+                                snapshots.getJSONObject(t2).getString("id"),
+                                snapshots.getJSONObject(t2).getString("visibility"),
+                                OvhApi.dateToTime(snapshots.getJSONObject(t2).getString("creationDate")),
+                                snapshots.getJSONObject(t2).getString("status"),
+                                Region.byName(_project, snapshots.getJSONObject(t2).getString("region")),
+                                snapshots.getJSONObject(t2).getString("name"),
+                                snapshots.getJSONObject(t2).getString("type"),
+                                snapshots.getJSONObject(t2).getInt("minDisk")
+                        )));
     }
 
     /**
@@ -153,28 +138,17 @@ public class Snapshot extends Image {
     public static Observable<Snapshot> byId(Project _project, String _id) {
         return new RequestBuilder("/cloud/project/" + _project.getId() + "/snapshot/" + _id, Method.GET, _project.getCredentials())
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    try {
-                        if (t1.getStatus() < 200 || t1.getStatus() >= 300 || t1.getBody() == null || t1.getBody().isArray()) {
-                            return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                        }
-                        final JSONObject image = t1.getBody().getObject();
-
-                        return Observable.just(new Snapshot(_project,
-                                        image.getString("id"),
-                                        image.getString("visibility"),
-                                        OvhApi.dateToTime(image.getString("creationDate")),
-                                        image.getString("status"),
-                                        Region.byName(_project, image.getString("region")),
-                                        image.getString("name"),
-                                        image.getString("type"),
-                                        image.getInt("minDisk")
-                                ));
-
-                    } catch (ParseException ex) {
-                        return Observable.error(ex);
-                    }
-                });
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(JSONObject.class))
+                .map((JSONObject image) -> new Snapshot(_project,
+                        image.getString("id"),
+                        image.getString("visibility"),
+                        OvhApi.dateToTime(image.getString("creationDate")),
+                        image.getString("status"),
+                        Region.byName(_project, image.getString("region")),
+                        image.getString("name"),
+                        image.getString("type"),
+                        image.getInt("minDisk")
+                ));
     }
 
     /**
@@ -295,12 +269,8 @@ public class Snapshot extends Image {
     public Observable<Snapshot> delete() {
         return new RequestBuilder("/cloud/project/" + project.getId() + "/snapshot/" + id, Method.DELETE, project.getCredentials())
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    if (t1.getStatus() < 200 || t1.getStatus() >= 300) {
-                        return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                    }
-                    return Observable.just(this);
-                });
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(null))
+                .map((Object t1) -> this);
     }
 
 }

@@ -53,10 +53,14 @@ public class OvhApi {
      *
      * @return the matching timestamp
      *
-     * @throws ParseException if date format is not the awaited one
+     * @throws RuntimeException if date format is not the awaited one
      */
-    public static long dateToTime(String _date) throws ParseException {
-        return dateFormat.parse(_date).getTime();
+    public static long dateToTime(String _date) throws RuntimeException {
+        try {
+            return dateFormat.parse(_date).getTime();
+        } catch (ParseException ex) {
+            throw new RuntimeException(ex);
+        }
     }
 
     /**

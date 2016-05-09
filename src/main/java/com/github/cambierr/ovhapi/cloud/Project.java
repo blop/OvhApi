@@ -27,12 +27,10 @@ import com.github.cambierr.ovhapi.auth.Credential;
 import com.github.cambierr.ovhapi.common.Method;
 import com.github.cambierr.ovhapi.common.OvhApi;
 import com.github.cambierr.ovhapi.common.RequestBuilder;
-import com.github.cambierr.ovhapi.exception.PartialObjectException;
-import com.github.cambierr.ovhapi.exception.RequestException;
-import java.net.URLEncoder;
-import java.text.ParseException;
-import java.util.ArrayList;
 import com.github.cambierr.ovhapi.common.SafeResponse;
+import com.github.cambierr.ovhapi.exception.PartialObjectException;
+import java.net.URLEncoder;
+import java.util.ArrayList;
 import java.util.List;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -174,24 +172,14 @@ public class Project {
     public static Observable<Project> byId(Credential _credentials, String _id) {
         return new RequestBuilder("/cloud/project/" + _id, Method.GET, _credentials)
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    try {
-                        if (t1.getStatus() < 200 || t1.getStatus() >= 300 || t1.getBody() == null || t1.getBody().isArray()) {
-                            return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                        }
-                        JSONObject project = t1.getBody().getObject();
-                        Project p = new Project(_credentials,
-                                project.getString("project_id"),
-                                project.getString("status"),
-                                OvhApi.dateToTime(project.getString("creationDate")),
-                                project.getBoolean("unleash"),
-                                project.getString("description")
-                        );
-                        return Observable.just(p);
-                    } catch (ParseException ex) {
-                        return Observable.error(ex);
-                    }
-                });
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(JSONObject.class))
+                .map((JSONObject project) -> new Project(_credentials,
+                        project.getString("project_id"),
+                        project.getString("status"),
+                        OvhApi.dateToTime(project.getString("creationDate")),
+                        project.getBoolean("unleash"),
+                        project.getString("description")
+                ));
     }
 
     /**
@@ -204,13 +192,11 @@ public class Project {
     public static Observable<Project> list(Credential _credentials) {
         return new RequestBuilder("/cloud/project", Method.GET, _credentials)
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    if (t1.getStatus() < 200 || t1.getStatus() >= 300 || t1.getBody() == null || !t1.getBody().isArray()) {
-                        return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                    }
-                    JSONArray resp = t1.getBody().getArray();
-                    return Observable.range(0, resp.length()).map((Integer t) -> new Project(_credentials, resp.getString(t)));
-                });
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(JSONArray.class))
+                .flatMap((JSONArray resp) -> Observable
+                        .range(0, resp.length())
+                        .map((Integer t) -> new Project(_credentials, resp.getString(t)))
+                );
     }
 
     /**
@@ -224,12 +210,10 @@ public class Project {
         return new RequestBuilder("/cloud/project/" + this.id, Method.PUT, credentials)
                 .body(new JSONObject().put("description", _description).toString())
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    if (t1.getStatus() < 200 || t1.getStatus() >= 300) {
-                        return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                    }
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(null))
+                .map((Object t1) -> {
                     this.description = _description;
-                    return Observable.just(this);
+                    return this;
                 });
     }
 
@@ -250,13 +234,8 @@ public class Project {
         }
         return new RequestBuilder("/cloud/project/" + this.id + "/consumption" + args, Method.GET, credentials)
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    if (t1.getStatus() < 200 || t1.getStatus() >= 300 || t1.getBody() == null || t1.getBody().isArray()) {
-                        return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                    }
-                    JSONObject output = t1.getBody().getObject();
-                    return Observable.just(new Consumption(output));
-                });
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(JSONObject.class))
+                .map((JSONObject output) -> new Consumption(output));
     }
 
     public class Consumption {

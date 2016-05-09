@@ -27,10 +27,7 @@ import com.github.cambierr.ovhapi.common.Method;
 import com.github.cambierr.ovhapi.common.OvhApi;
 import com.github.cambierr.ovhapi.common.RequestBuilder;
 import com.github.cambierr.ovhapi.common.SafeResponse;
-import com.github.cambierr.ovhapi.exception.RequestException;
-import java.text.ParseException;
 import org.json.JSONArray;
-import org.json.JSONException;
 import org.json.JSONObject;
 import rx.Observable;
 
@@ -74,21 +71,29 @@ public class Instance {
     public static Observable<Instance> list(Project _project, Region _region) {
         return new RequestBuilder("/cloud/project/" + _project.getId() + "/instance?region=" + ((_region == null) ? "" : _region.getName()), Method.GET, _project.getCredentials())
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    if (t1.getStatus() < 200 || t1.getStatus() >= 300 || t1.getBody() == null || !t1.getBody().isArray()) {
-                        return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                    }
-                    final JSONArray instances = t1.getBody().getArray();
-                    return Observable.range(0, instances.length())
-                    .flatMap((Integer t2) -> {
-                        JSONObject instance = instances.getJSONObject(t2);
-                        try {
-                            return Observable.just(new Instance(_project, Status.valueOf(instance.getString("status")), Region.byName(_project, instance.getString("region")), instance.getString("name"), Image.byId(_project, instance.getString("imageId"), Region.byName(_project, instance.getString("region"))), OvhApi.dateToTime(instance.getString("created")), Flavor.byId(_project, instance.getString("flavorId"), Region.byName(_project, instance.getString("region"))), instance.get("sshKeyId") == JSONObject.NULL ? null : SshKey.byIdPartial(_project, instance.getString("sshKeyId")), instance.getString("id")));
-                        } catch (JSONException | ParseException ex) {
-                            return Observable.error(ex);
-                        }
-                    });
-                });
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(JSONArray.class))
+                .flatMap((JSONArray instances) -> Observable
+                        .range(0, instances.length())
+                        .map((Integer t2) -> {
+                            JSONObject instance = instances.getJSONObject(t2);
+                            return new Instance(_project,
+                                    Status.valueOf(instance.getString("status")),
+                                    Region.byName(_project, instance.getString("region")),
+                                    instance.getString("name"),
+                                    Image.byId(_project,
+                                            instance.getString("imageId"),
+                                            Region.byName(_project,
+                                                    instance.getString("region")
+                                            )),
+                                    OvhApi.dateToTime(instance.getString("created")),
+                                    Flavor.byId(_project,
+                                            instance.getString("flavorId"),
+                                            Region.byName(_project,
+                                                    instance.getString("region")
+                                            )),
+                                    instance.get("sshKeyId") == JSONObject.NULL ? null : SshKey.byIdPartial(_project, instance.getString("sshKeyId")),
+                                    instance.getString("id"));
+                        }));
     }
 
     /**
@@ -102,28 +107,42 @@ public class Instance {
     public static Observable<Instance> byId(Project _project, String _id) {
         return new RequestBuilder("/cloud/project/" + _project.getId() + "/instance/" + _id, Method.GET, _project.getCredentials())
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    try {
-                        if (t1.getStatus() < 200 || t1.getStatus() >= 300 || t1.getBody() == null || t1.getBody().isArray()) {
-                            return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                        }
-                        final JSONObject instance = t1.getBody().getObject();
-                        JSONObject jsonImage = instance.getJSONObject("image");
-                        JSONObject jsonFlavor = instance.getJSONObject("flavor");
-                        JSONObject jsonSshKey = instance.get("sshKey") == JSONObject.NULL ? null : instance.getJSONObject("sshKey");
-                        return Observable.just(new Instance(
-                                        _project,
-                                        Status.valueOf(instance.getString("status")),
-                                        Region.byName(_project, instance.getString("region")),
-                                        instance.getString("name"),
-                                        new Image(_project, jsonImage.getString("id"), jsonImage.getString("visibility"), OvhApi.dateToTime(jsonImage.getString("creationDate")), jsonImage.getString("status"), Region.byName(_project, jsonImage.getString("region")), jsonImage.getString("name"), jsonImage.getString("type"), jsonImage.getInt("minDisk")),
-                                        OvhApi.dateToTime(instance.getString("created")),
-                                        new Flavor(_project, jsonFlavor.getString("id"), jsonFlavor.getInt("disk"), Region.byName(_project, jsonFlavor.getString("region")), jsonFlavor.getString("name"), jsonFlavor.getInt("vcpus"), jsonFlavor.getString("type"), jsonFlavor.getString("osType"), jsonFlavor.getInt("ram")),
-                                        jsonSshKey == null ? null : new SshKey(_project, jsonSshKey.getString("id"), Region.byName(_project, jsonSshKey.getJSONArray("regions").getString(0)), jsonSshKey.getString("name"), jsonSshKey.getString("publicKey"), jsonSshKey.getString("fingerPrint")),
-                                        instance.getString("id")));
-                    } catch (ParseException ex) {
-                        return Observable.error(ex);
-                    }
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(JSONObject.class))
+                .map((JSONObject instance) -> {
+                    JSONObject jsonImage = instance.getJSONObject("image");
+                    JSONObject jsonFlavor = instance.getJSONObject("flavor");
+                    JSONObject jsonSshKey = instance.get("sshKey") == JSONObject.NULL ? null : instance.getJSONObject("sshKey");
+                    return new Instance(
+                            _project,
+                            Status.valueOf(instance.getString("status")),
+                            Region.byName(_project, instance.getString("region")),
+                            instance.getString("name"),
+                            new Image(_project,
+                                    jsonImage.getString("id"),
+                                    jsonImage.getString("visibility"),
+                                    OvhApi.dateToTime(jsonImage.getString("creationDate")),
+                                    jsonImage.getString("status"),
+                                    Region.byName(_project, jsonImage.getString("region")),
+                                    jsonImage.getString("name"),
+                                    jsonImage.getString("type"),
+                                    jsonImage.getInt("minDisk")),
+                            OvhApi.dateToTime(instance.getString("created")),
+                            new Flavor(_project,
+                                    jsonFlavor.getString("id"),
+                                    jsonFlavor.getInt("disk"),
+                                    Region.byName(_project, jsonFlavor.getString("region")),
+                                    jsonFlavor.getString("name"),
+                                    jsonFlavor.getInt("vcpus"),
+                                    jsonFlavor.getString("type"),
+                                    jsonFlavor.getString("osType"),
+                                    jsonFlavor.getInt("ram")),
+                            jsonSshKey == null ? null : new SshKey(_project,
+                                            jsonSshKey.getString("id"),
+                                            Region.byName(_project, jsonSshKey.getJSONArray("regions").getString(0)),
+                                            jsonSshKey.getString("name"),
+                                            jsonSshKey.getString("publicKey"),
+                                            jsonSshKey.getString("fingerPrint")),
+                            instance.getString("id"));
                 });
     }
 
@@ -241,12 +260,8 @@ public class Instance {
     public Observable<Instance> kill() {
         return new RequestBuilder("/cloud/project/" + project.getId() + "/instance/" + id, Method.DELETE, project.getCredentials())
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    if (t1.getStatus() < 200 || t1.getStatus() >= 300) {
-                        return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                    }
-                    return Observable.just(this);
-                });
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(null))
+                .map((Object t1) -> this);
     }
 
     /**
@@ -272,29 +287,42 @@ public class Instance {
                         .toString()
                 )
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    try {
-                        if (t1.getStatus() < 200 || t1.getStatus() >= 300 || t1.getBody() == null || t1.getBody().isArray()) {
-                            return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                        }
-                        final JSONObject instance = t1.getBody().getObject();
-                        //@todo go on from here
-                        JSONObject jsonImage = instance.getJSONObject("image");
-                        JSONObject jsonFlavor = instance.getJSONObject("flavor");
-                        JSONObject jsonSshKey = instance.get("sshKey") == JSONObject.NULL ? null : instance.getJSONObject("sshKey");
-                        return Observable.just(new Instance(
-                                        _project,
-                                        Status.valueOf(instance.getString("status")),
-                                        Region.byName(_project, instance.getString("region")),
-                                        instance.getString("name"),
-                                        new Image(_project, jsonImage.getString("id"), jsonImage.getString("visibility"), OvhApi.dateToTime(jsonImage.getString("creationDate")), jsonImage.getString("status"), Region.byName(_project, jsonImage.getString("region")), jsonImage.getString("name"), jsonImage.getString("type"), jsonImage.getInt("minDisk")),
-                                        OvhApi.dateToTime(instance.getString("created")),
-                                        new Flavor(_project, jsonFlavor.getString("id"), jsonFlavor.getInt("disk"), Region.byName(_project, jsonFlavor.getString("region")), jsonFlavor.getString("name"), jsonFlavor.getInt("vcpus"), jsonFlavor.getString("type"), jsonFlavor.getString("osType"), jsonFlavor.getInt("ram")),
-                                        jsonSshKey == null ? null : new SshKey(_project, jsonSshKey.getString("id"), Region.byName(_project, jsonSshKey.getJSONArray("regions").getString(0)), jsonSshKey.getString("name"), jsonSshKey.getString("publicKey"), jsonSshKey.getString("fingerPrint")),
-                                        instance.getString("id")));
-                    } catch (ParseException ex) {
-                        return Observable.error(ex);
-                    }
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(JSONObject.class))
+                .map((JSONObject instance) -> {
+                    JSONObject jsonImage = instance.getJSONObject("image");
+                    JSONObject jsonFlavor = instance.getJSONObject("flavor");
+                    JSONObject jsonSshKey = instance.get("sshKey") == JSONObject.NULL ? null : instance.getJSONObject("sshKey");
+                    return new Instance(
+                            _project,
+                            Status.valueOf(instance.getString("status")),
+                            Region.byName(_project, instance.getString("region")),
+                            instance.getString("name"),
+                            new Image(_project,
+                                    jsonImage.getString("id"),
+                                    jsonImage.getString("visibility"),
+                                    OvhApi.dateToTime(jsonImage.getString("creationDate")),
+                                    jsonImage.getString("status"),
+                                    Region.byName(_project, jsonImage.getString("region")),
+                                    jsonImage.getString("name"),
+                                    jsonImage.getString("type"),
+                                    jsonImage.getInt("minDisk")),
+                            OvhApi.dateToTime(instance.getString("created")),
+                            new Flavor(_project,
+                                    jsonFlavor.getString("id"),
+                                    jsonFlavor.getInt("disk"),
+                                    Region.byName(_project, jsonFlavor.getString("region")),
+                                    jsonFlavor.getString("name"),
+                                    jsonFlavor.getInt("vcpus"),
+                                    jsonFlavor.getString("type"),
+                                    jsonFlavor.getString("osType"),
+                                    jsonFlavor.getInt("ram")),
+                            jsonSshKey == null ? null : new SshKey(_project,
+                                            jsonSshKey.getString("id"),
+                                            Region.byName(_project, jsonSshKey.getJSONArray("regions").getString(0)),
+                                            jsonSshKey.getString("name"),
+                                            jsonSshKey.getString("publicKey"),
+                                            jsonSshKey.getString("fingerPrint")),
+                            instance.getString("id"));
                 });
     }
 
@@ -323,20 +351,24 @@ public class Instance {
                         .toString()
                 )
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    if (t1.getStatus() < 200 || t1.getStatus() >= 300 || t1.getBody() == null || !t1.getBody().isArray()) {
-                        return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                    }
-                    final JSONArray instances = t1.getBody().getArray();
-                    return Observable.range(0, instances.length())
-                    .flatMap((Integer t) -> {
-                        try {
-                            return Observable.just(new Instance(_project, Status.valueOf(instances.getJSONObject(t).getString("status")), Region.byName(_project, instances.getJSONObject(t).getString("region")), instances.getJSONObject(t).getString("name"), Image.byId(_project, instances.getJSONObject(t).getString("imageId"), Region.byName(_project, instances.getJSONObject(t).getString("region"))), OvhApi.dateToTime(instances.getJSONObject(t).getString("created")), Flavor.byId(_project, instances.getJSONObject(t).getString("flavorId"), Region.byName(_project, instances.getJSONObject(t).getString("region"))), SshKey.byIdPartial(_project, instances.getJSONObject(t).getString("sshKeyId")), instances.getJSONObject(t).getString("id")));
-                        } catch (ParseException ex) {
-                            return Observable.error(ex);
-                        }
-                    });
-                });
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(JSONArray.class))
+                .flatMap((JSONArray instances) -> Observable
+                        .range(0, instances.length())
+                        .map((Integer t) -> {
+                            return new Instance(_project,
+                                    Status.valueOf(instances.getJSONObject(t).getString("status")),
+                                    Region.byName(_project, instances.getJSONObject(t).getString("region")),
+                                    instances.getJSONObject(t).getString("name"),
+                                    Image.byId(_project,
+                                            instances.getJSONObject(t).getString("imageId"),
+                                            Region.byName(_project, instances.getJSONObject(t).getString("region"))),
+                                    OvhApi.dateToTime(instances.getJSONObject(t).getString("created")),
+                                    Flavor.byId(_project,
+                                            instances.getJSONObject(t).getString("flavorId"),
+                                            Region.byName(_project, instances.getJSONObject(t).getString("region"))),
+                                    SshKey.byIdPartial(_project, instances.getJSONObject(t).getString("sshKeyId")),
+                                    instances.getJSONObject(t).getString("id"));
+                        }));
     }
 
     /**
@@ -353,14 +385,11 @@ public class Instance {
                         .toString()
                 )
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    if (t1.getStatus() < 200 || t1.getStatus() >= 300 || t1.getBody() == null || t1.getBody().isArray()) {
-                        return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                    }
-                    final JSONObject instance = t1.getBody().getObject();
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(JSONObject.class))
+                .map((JSONObject instance) -> {
                     this.flavor = _flavor;
                     this.status = Status.valueOf(instance.getString("status"));
-                    return Observable.just(this);
+                    return this;
                 });
     }
 
@@ -378,14 +407,11 @@ public class Instance {
                         .toString()
                 )
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    if (t1.getStatus() < 200 || t1.getStatus() >= 300 || t1.getBody() == null || t1.getBody().isArray()) {
-                        return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                    }
-                    final JSONObject instance = t1.getBody().getObject();
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(JSONObject.class))
+                .map((JSONObject instance) -> {
                     this.image = _image;
                     this.status = Status.valueOf(instance.getString("status"));
-                    return Observable.just(this);
+                    return this;
                 });
     }
 
@@ -403,12 +429,10 @@ public class Instance {
                         .toString()
                 )
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    if (t1.getStatus() < 200 || t1.getStatus() >= 300) {
-                        return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                    }
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(null))
+                .map((Object t1) -> {
                     this.name = _name;
-                    return Observable.just(this);
+                    return this;
                 });
     }
 
@@ -442,12 +466,10 @@ public class Instance {
                         .toString()
                 )
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    if (t1.getStatus() < 200 || t1.getStatus() >= 300) {
-                        return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                    }
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(null))
+                .map((Object t1) -> {
                     this.status = Status.REBOOT;
-                    return Observable.just(this);
+                    return this;
                 });
     }
 
@@ -465,12 +487,8 @@ public class Instance {
                         .toString()
                 )
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    if (t1.getStatus() < 200 || t1.getStatus() >= 300) {
-                        return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                    }
-                    return Observable.just(this);
-                });
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(null))
+                .map((Object t1) -> this);
     }
 
 }

@@ -26,7 +26,6 @@ package com.github.cambierr.ovhapi.auth;
 import com.github.cambierr.ovhapi.common.Method;
 import com.github.cambierr.ovhapi.common.RequestBuilder;
 import com.github.cambierr.ovhapi.common.SafeResponse;
-import com.github.cambierr.ovhapi.exception.RequestException;
 import com.github.cambierr.ovhapi.exception.TokenNotLinkedException;
 import org.json.JSONObject;
 import rx.Observable;
@@ -57,12 +56,9 @@ public class CredentialRequest {
         return new RequestBuilder("/auth/credential", Method.POST, _applicationKey)
                 .body(new JSONObject().put("redirection", _redirection).put("accessRules", _rules.toJson()).toString())
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    if (t1.getStatus() < 200 || t1.getStatus() >= 300 || t1.getBody() == null || t1.getBody().isArray()) {
-                        return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                    }
-                    JSONObject token = t1.getBody().getObject();
-                    return Observable.just(new CredentialRequest(_applicationKey, _applicationSecret, token.getString("consumerKey"), token.getString("validationUrl")));
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(JSONObject.class))
+                .map((JSONObject token) -> {
+                    return new CredentialRequest(_applicationKey, _applicationSecret, token.getString("consumerKey"), token.getString("validationUrl"));
                 });
     }
 
@@ -87,7 +83,8 @@ public class CredentialRequest {
      * Checks if this request (and its CK) has been linked to an user account
      *
      * <p>
-     * <strong>Currently, this method isn't implemented yet and will always return true.</strong></p>
+     * <strong>Currently, this method isn't implemented yet and will always
+     * return true.</strong></p>
      *
      * @return true if linked, or false
      */
@@ -104,11 +101,13 @@ public class CredentialRequest {
     }
 
     /**
-     * Returns the Credential object matching this request if CK has been linked, or throws an exception
+     * Returns the Credential object matching this request if CK has been
+     * linked, or throws an exception
      *
      * @return the credential object matching this request
      *
-     * @throws TokenNotLinkedException if this request (its CK) hasn't been linked to an user
+     * @throws TokenNotLinkedException if this request (its CK) hasn't been
+     * linked to an user
      */
     public Credential getCredential() throws TokenNotLinkedException {
         if (!isLinked()) {

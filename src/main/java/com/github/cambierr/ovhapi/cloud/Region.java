@@ -26,7 +26,6 @@ package com.github.cambierr.ovhapi.cloud;
 import com.github.cambierr.ovhapi.common.Method;
 import com.github.cambierr.ovhapi.common.RequestBuilder;
 import com.github.cambierr.ovhapi.common.SafeResponse;
-import com.github.cambierr.ovhapi.exception.RequestException;
 import org.json.JSONArray;
 import rx.Observable;
 
@@ -67,14 +66,11 @@ public class Region {
     public static Observable<Region> list(Project _project) {
         return new RequestBuilder("/cloud/project/" + _project.getId() + "/region", Method.GET, _project.getCredentials())
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    if (t1.getStatus() < 200 || t1.getStatus() >= 300 || t1.getBody() == null || !t1.getBody().isArray()) {
-                        return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                    }
-                    final JSONArray regions = t1.getBody().getArray();
-                    return Observable.range(0, regions.length())
-                    .map((Integer t2) -> new Region(_project, regions.getString(t2)));
-                });
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(JSONArray.class))
+                .flatMap((JSONArray regions) -> Observable
+                        .range(0, regions.length())
+                        .map((Integer t2) -> new Region(_project, regions.getString(t2)))
+                );
 
     }
 

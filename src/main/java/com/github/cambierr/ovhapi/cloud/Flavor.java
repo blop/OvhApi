@@ -27,7 +27,6 @@ import com.github.cambierr.ovhapi.common.Method;
 import com.github.cambierr.ovhapi.common.RequestBuilder;
 import com.github.cambierr.ovhapi.common.SafeResponse;
 import com.github.cambierr.ovhapi.exception.PartialObjectException;
-import com.github.cambierr.ovhapi.exception.RequestException;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import rx.Observable;
@@ -120,13 +119,21 @@ public class Flavor {
     public static Observable<Flavor> list(Project _project, Region _region) {
         return new RequestBuilder("/cloud/project/" + _project.getId() + "/flavor?region=" + ((_region != null) ? _region.getName() : ""), Method.GET, _project.getCredentials())
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    if (t1.getStatus() < 200 || t1.getStatus() >= 300 || t1.getBody() == null || !t1.getBody().isArray()) {
-                        return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                    }
-                    final JSONArray flavors = t1.getBody().getArray();
-                    return Observable.range(0, flavors.length()).map((Integer t2) -> new Flavor(_project, flavors.getJSONObject(t2).getString("id"), flavors.getJSONObject(t2).getInt("disk"), Region.byName(_project, flavors.getJSONObject(t2).getString("region")), flavors.getJSONObject(t2).getString("name"), flavors.getJSONObject(t2).getInt("vcpus"), flavors.getJSONObject(t2).getString("type"), flavors.getJSONObject(t2).getString("osType"), flavors.getJSONObject(t2).getInt("ram")));
-                });
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(JSONArray.class))
+                .flatMap((JSONArray flavors) -> Observable
+                        .range(0, flavors.length())
+                        .map((Integer t2) -> new Flavor(
+                                _project,
+                                flavors.getJSONObject(t2).getString("id"),
+                                flavors.getJSONObject(t2).getInt("disk"),
+                                Region.byName(_project, flavors.getJSONObject(t2).getString("region")),
+                                flavors.getJSONObject(t2).getString("name"),
+                                flavors.getJSONObject(t2).getInt("vcpus"),
+                                flavors.getJSONObject(t2).getString("type"),
+                                flavors.getJSONObject(t2).getString("osType"),
+                                flavors.getJSONObject(t2).getInt("ram"))
+                        )
+                );
     }
 
     /**
@@ -140,22 +147,17 @@ public class Flavor {
     public static Observable<Flavor> byId(Project _project, String _id) {
         return new RequestBuilder("/cloud/project/" + _project.getId() + "/flavor/" + _id, Method.GET, _project.getCredentials())
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    if (t1.getStatus() < 200 || t1.getStatus() >= 300 || t1.getBody() == null || t1.getBody().isArray()) {
-                        return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                    }
-                    JSONObject flavor = t1.getBody().getObject();
-                    return Observable.just(
-                            new Flavor(_project,
-                                    flavor.getString("id"),
-                                    flavor.getInt("disk"),
-                                    Region.byName(_project, flavor.getString("region")),
-                                    flavor.getString("name"),
-                                    flavor.getInt("vcpus"),
-                                    flavor.getString("type"),
-                                    flavor.getString("osType"),
-                                    flavor.getInt("ram")
-                            )
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(JSONObject.class))
+                .map((JSONObject flavor) -> {
+                    return new Flavor(_project,
+                            flavor.getString("id"),
+                            flavor.getInt("disk"),
+                            Region.byName(_project, flavor.getString("region")),
+                            flavor.getString("name"),
+                            flavor.getInt("vcpus"),
+                            flavor.getString("type"),
+                            flavor.getString("osType"),
+                            flavor.getInt("ram")
                     );
                 });
     }

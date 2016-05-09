@@ -27,7 +27,6 @@ import com.github.cambierr.ovhapi.common.Method;
 import com.github.cambierr.ovhapi.common.RequestBuilder;
 import com.github.cambierr.ovhapi.common.SafeResponse;
 import com.github.cambierr.ovhapi.exception.PartialObjectException;
-import com.github.cambierr.ovhapi.exception.RequestException;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import rx.Observable;
@@ -82,18 +81,19 @@ public class Storage {
     public static Observable<Storage> list(Project _project) {
         return new RequestBuilder("/cloud/project/" + _project.getId() + "/storage", Method.GET, _project.getCredentials())
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    if (t1.getStatus() < 200 || t1.getStatus() >= 300 || t1.getBody() == null || !t1.getBody().isArray()) {
-                        return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                    }
-                    final JSONArray containers = t1.getBody().getArray();
-                    return Observable
-                    .range(0, containers.length())
-                    .map((Integer t2) -> {
-                        JSONObject container = containers.getJSONObject(t2);
-                        return new Storage(_project, container.getString("id"), container.getString("name"), Region.byName(_project, container.getString("region")), container.getLong("storedBytes"), container.getLong("storedObjects"));
-                    });
-                });
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(JSONArray.class))
+                .flatMap((JSONArray containers) -> Observable
+                        .range(0, containers.length())
+                        .map((Integer t2) -> {
+                            JSONObject container = containers.getJSONObject(t2);
+                            return new Storage(_project,
+                                    container.getString("id"),
+                                    container.getString("name"),
+                                    Region.byName(_project, container.getString("region")),
+                                    container.getLong("storedBytes"),
+                                    container.getLong("storedObjects"));
+                        })
+                );
     }
 
     /**
@@ -107,13 +107,16 @@ public class Storage {
     public static Observable<Storage> byId(Project _project, String _id) {
         return new RequestBuilder("/cloud/project/" + _project.getId() + "/storage/" + _id, Method.GET, _project.getCredentials())
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    if (t1.getStatus() < 200 || t1.getStatus() >= 300 || t1.getBody() == null || t1.getBody().isArray()) {
-                        return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                    }
-                    final JSONObject container = t1.getBody().getObject();
-                    return Observable.just(new Storage(_project, _id, container.getString("name"), Region.byName(_project, container.getString("region")), container.getLong("storedBytes"), container.getLong("storedObjects"), container.getString("staticUrl"), container.getBoolean("public")));
-                });
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(JSONObject.class))
+                .map((JSONObject container) -> new Storage(_project,
+                        _id,
+                        container.getString("name"),
+                        Region.byName(_project, container.getString("region")),
+                        container.getLong("storedBytes"),
+                        container.getLong("storedObjects"),
+                        container.getString("staticUrl"),
+                        container.getBoolean("public"))
+                );
     }
 
     /**
@@ -236,12 +239,8 @@ public class Storage {
     public Observable<Storage> delete() {
         return new RequestBuilder("/cloud/project/" + project.getId() + "/storage/" + id, Method.DELETE, project.getCredentials())
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    if (t1.getStatus() < 200 || t1.getStatus() >= 300) {
-                        return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                    }
-                    return Observable.just(this);
-                });
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(null))
+                .map((Object t1) -> this);
     }
 
     /**
@@ -258,12 +257,8 @@ public class Storage {
                         .toString()
                 )
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    if (t1.getStatus() < 200 || t1.getStatus() >= 300) {
-                        return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                    }
-                    return Observable.just(this);
-                });
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(null))
+                .map((Object t1) -> this);
     }
 
     /**
@@ -283,16 +278,7 @@ public class Storage {
                         .toString()
                 )
                 .build()
-                .flatMap((SafeResponse t1) -> {
-                    try {
-                        if (t1.getStatus() < 200 || t1.getStatus() >= 300 || t1.getBody() == null || t1.getBody().isArray()) {
-                            return Observable.error(new RequestException(t1.getStatus(), t1.getStatusText(), (t1.getBody() == null) ? null : t1.getBody().toString()));
-                        }
-                        final JSONObject storage = t1.getBody().getObject();
-                        return Observable.just(new Storage(_project, storage.getString("id"), _name, _region, storage.getLong("storedBytes"), storage.getLong("storedObjects")));
-                    } catch (Exception ex) {
-                        return Observable.error(ex);
-                    }
-                });
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(JSONObject.class))
+                .map((JSONObject storage) -> new Storage(_project, storage.getString("id"), _name, _region, storage.getLong("storedBytes"), storage.getLong("storedObjects")));
     }
 }

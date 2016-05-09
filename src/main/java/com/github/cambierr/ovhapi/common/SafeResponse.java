@@ -23,8 +23,13 @@
  */
 package com.github.cambierr.ovhapi.common;
 
+import com.github.cambierr.ovhapi.exception.RequestException;
 import com.mashape.unirest.http.HttpResponse;
-import com.mashape.unirest.http.JsonNode;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+import rx.Observable;
+import rx.Subscriber;
 
 /**
  *
@@ -32,12 +37,12 @@ import com.mashape.unirest.http.JsonNode;
  */
 public class SafeResponse {
 
-    private final JsonNode data;
+    private final String data;
     private final String statusText;
     private final int status;
 
     protected SafeResponse(HttpResponse<String> _from) {
-        data = (_from.getBody().equals("null") || _from.getBody().equals("")) ? null : new JsonNode(_from.getBody());
+        data = _from.getBody();
         statusText = _from.getStatusText();
         status = _from.getStatus();
     }
@@ -46,12 +51,40 @@ public class SafeResponse {
         return statusText;
     }
 
-    public JsonNode getBody() {
+    public String getBody() {
         return data;
     }
 
     public int getStatus() {
         return status;
+    }
+
+    public <T extends Object> Observable<T> validateResponse(Class<T> _model) {
+        return Observable.create((Subscriber<? super T> arg0) -> {
+            try {
+                if (getStatus() < 200 || getStatus() >= 300) {
+                    throw new RequestException(getStatus(), getStatusText(), (data == null) ? null : data);
+                }
+                if (_model == null) {
+                    arg0.onNext(null);
+                } else if (_model.equals(String.class)) {
+                    arg0.onNext((T) getBody());
+                } else if (_model.equals(JSONObject.class)) {
+                    arg0.onNext((T) new JSONObject(getBody()));
+                } else if (_model.equals(JSONArray.class)) {
+                    arg0.onNext((T) new JSONArray(getBody()));
+                } else {
+                    throw new IllegalArgumentException("model class unknown");
+                }
+                arg0.onCompleted();
+            } catch (RequestException | IllegalArgumentException | JSONException ex) {
+                if (ex instanceof JSONException) {
+                    arg0.onError(new RequestException(getStatus(), getStatusText(), (data == null) ? null : data));
+                } else {
+                    arg0.onError(ex);
+                }
+            }
+        });
     }
 
 }
