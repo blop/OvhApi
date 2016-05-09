@@ -27,7 +27,9 @@ import com.github.cambierr.ovhapi.auth.Credential;
 import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.request.HttpRequest;
+import java.util.concurrent.Future;
 import rx.Observable;
+import rx.Subscriber;
 import rx.schedulers.Schedulers;
 
 /**
@@ -78,7 +80,8 @@ public class RequestBuilder {
      *
      * @return the updated RequestBuilder
      *
-     * @throws IllegalArgumentException if called on a request that doesn't supports bodys
+     * @throws IllegalArgumentException if called on a request that doesn't
+     * supports bodys
      */
     public RequestBuilder body(String _body) {
         if (!this.method.equals(Method.POST) && !this.method.equals(Method.PUT)) {
@@ -94,33 +97,45 @@ public class RequestBuilder {
      * @return an observable Resposne object
      */
     public Observable<SafeResponse> build() {
-        String completePath = "https://" + OvhApi.API_ENDPOINT + "/" + OvhApi.API_VERSION + path;
-        HttpRequest req = null;
-        switch (method) {
-            case GET:
-                req = Unirest.get(completePath);
-                break;
-            case DELETE:
-                req = Unirest.delete(completePath);
-                break;
-            case POST:
-                req = ((body == null) ? Unirest.post(completePath) : Unirest.post(completePath).header("Content-type", "application/json").body(body)).getHttpRequest();
-                break;
-            case PUT:
-                req = ((body == null) ? Unirest.put(completePath) : Unirest.put(completePath).header("Content-type", "application/json").body(body)).getHttpRequest();
-                break;
-            default:
-                throw new RuntimeException("wrong method received");
-        }
+        return Observable
+                .create((Subscriber<? super Future<HttpResponse<String>>> arg0) -> {
+                    arg0.onStart();
+                    try {
+                        String completePath = "https://" + OvhApi.API_ENDPOINT + "/" + OvhApi.API_VERSION + path;
+                        HttpRequest req = null;
+                        switch (method) {
+                            case GET:
+                                req = Unirest.get(completePath);
+                                break;
+                            case DELETE:
+                                req = Unirest.delete(completePath);
+                                break;
+                            case POST:
+                                req = ((body == null) ? Unirest.post(completePath) : Unirest.post(completePath).header("Content-type", "application/json").body(body)).getHttpRequest();
+                                break;
+                            case PUT:
+                                req = ((body == null) ? Unirest.put(completePath) : Unirest.put(completePath).header("Content-type", "application/json").body(body)).getHttpRequest();
+                                break;
+                            default:
+                                throw new RuntimeException("wrong method received");
+                        }
+                        if (credentials != null) {
+                            credentials.sign(req, method, body);
+                        } else if (applicationKey != null) {
+                            req.header("X-Ovh-Application", applicationKey);
+                        }
+                        req.header("User-Agent", userAgent);
+                        arg0.onNext(req.asStringAsync());
+                        arg0.onCompleted();
+                    } catch (Exception ex) {
+                        arg0.onError(ex);
+                    }
+                })
+                .flatMap((Future<HttpResponse<String>> arg0) -> Observable
+                        .from(arg0, Schedulers.io())
+                        .map((HttpResponse<String> t) -> new SafeResponse(t))
+                );
 
-        if (credentials != null) {
-            credentials.sign(req, method, body);
-        } else if (applicationKey != null) {
-            req.header("X-Ovh-Application", this.applicationKey);
-        }
-        req.header("User-Agent", userAgent);
-
-        return Observable.from(req.asStringAsync(), Schedulers.io()).map((HttpResponse<String> t) -> new SafeResponse(t));
     }
 
 }

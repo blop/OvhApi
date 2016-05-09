@@ -23,14 +23,9 @@
  */
 package com.github.cambierr.ovhapi.common;
 
-import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.ProtocolException;
-import java.net.URL;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import javax.net.ssl.HttpsURLConnection;
 
 /**
  *
@@ -46,46 +41,10 @@ public class OvhApi {
      * The API endpoint
      */
     public final static String API_ENDPOINT = "eu.api.ovh.com";
-    private static OvhApi instance = null;
     /**
      * The API date format
      */
     private final static SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
-
-    private OvhApi() {
-        System.setProperty("https.protocols", "TLSv1");
-    }
-
-    /**
-     * Returns a singleton instances of the OVH API
-     *
-     * @return a singleton instances of the OVH API
-     */
-    protected static OvhApi getInstance() {
-        if (instance == null) {
-            instance = new OvhApi();
-        }
-        return instance;
-    }
-
-    /**
-     * Returns a pre-filled API call
-     *
-     * @param _path the API path to be called
-     * @param _method the API method
-     *
-     * @return a request matching provided path and method
-     *
-     * @throws MalformedURLException if API_ENDPOINT, API_VERSION, or provided path is malformed
-     * @throws ProtocolException if something goes wrong in the ssl handshake
-     * @throws IOException if something goes wrong with the I/O
-     */
-    protected HttpsURLConnection getBase(String _path, Method _method) throws MalformedURLException, ProtocolException, IOException {
-        HttpsURLConnection link = (HttpsURLConnection) new URL("https://" + API_ENDPOINT + "/" + API_VERSION + _path).openConnection();
-        link.setRequestMethod(_method.name());
-        link.setRequestProperty("Accept", "application/json");
-        return link;
-    }
 
     /**
      * Converts OVH API's dates to timestamps
