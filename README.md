@@ -101,3 +101,15 @@ mvn test
   <version>1.1</version>
 </dependency>
 ```
+
+##Extending
+Using not implemented endpoints with this lib is also easy:
+```java
+Credential creds = Credential.build("applicationKey", "applicationSecret", "consumerKey").toBlocking().single();
+
+JSONObject data = new RequestBuilder("/me", Method.GET, creds)
+                .build()
+                .flatMap((SafeResponse arg0) -> arg0.validateResponse(JSONObject.class))
+                .toBlocking()
+                .single();
+```
